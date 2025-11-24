@@ -10,7 +10,7 @@ SundialKitCombine provides observers that deliver state updates via @Published p
 
 ### Why Choose SundialKitCombine
 
-If you're building a SwiftUI application or need to support iOS 13+, SundialKitCombine is the perfect choice. It leverages Combine's publisher infrastructure to provide reactive state updates that bind naturally to SwiftUI views. The @Published properties work seamlessly with SwiftUI's observation system, automatically triggering view updates when network or connectivity state changes.
+If you're building a SwiftUI application and need to support iOS 13+, SundialKitCombine is the perfect choice. It leverages Combine's publisher infrastructure to provide reactive state updates that bind naturally to SwiftUI views. The @Published properties work seamlessly with SwiftUI's observation system, automatically triggering view updates when network or connectivity state changes.
 
 **Choose SundialKitCombine when you:**
 - Building SwiftUI applications with reactive data binding
@@ -40,13 +40,14 @@ Add SundialKit to your `Package.swift`:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0")
+  .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0"),
+  .package(url: "https://github.com/brightdigit/SundialKitCombine.git", from: "1.0.0")
 ],
 targets: [
   .target(
     name: "YourTarget",
     dependencies: [
-      .product(name: "SundialKitCombine", package: "SundialKit"),
+      .product(name: "SundialKitCombine", package: "SundialKitCombine"),
       .product(name: "SundialKitNetwork", package: "SundialKit"),  // For network monitoring
       .product(name: "SundialKitConnectivity", package: "SundialKit")  // For WatchConnectivity
     ]
@@ -56,7 +57,7 @@ targets: [
 
 ## Network Monitoring
 
-Monitor network connectivity changes using the @MainActor-based ``NetworkObserver``. The observer provides @Published properties for network state that automatically update your SwiftUI views, plus Combine publishers for advanced reactive patterns.
+Monitor network connectivity changes using ``NetworkObserver``. The observer provides @Published properties for network state that automatically update your SwiftUI views, plus Combine publishers for advanced reactive patterns.
 
 ### Basic Network Monitoring
 
@@ -124,8 +125,6 @@ struct NetworkStatusView: View {
 }
 ```
 
-Because both `NetworkConnectivityObject` and the observer use @MainActor isolation, all updates happen on the main thread automatically - no manual dispatch needed.
-
 ### Understanding PathStatus
 
 The ``PathStatus`` enum represents the current state of the network path:
@@ -135,44 +134,64 @@ The ``PathStatus`` enum represents the current state of the network path:
 - **`.requiresConnection`** - Network may be available but requires user action (e.g., connecting to WiFi)
 - **`.unknown`** - Initial state before first update
 
-### Advanced Combine Patterns
+### Ping Integration
 
-Because the observer provides Combine publishers, you can use the full power of Combine operators:
+Monitor network connectivity with periodic pings to verify actual internet access beyond path availability:
 
 ```swift
-// Debounce rapid network changes
-observer.$pathStatus
-  .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
-  .sink { status in
-    print("Stable network status: \(status)")
-  }
-  .store(in: &cancellables)
+import SundialKitCombine
+import SundialKitNetwork
 
-// Combine multiple signals
-Publishers.CombineLatest(observer.$isExpensive, observer.$isConstrained)
-  .sink { isExpensive, isConstrained in
-    if isExpensive || isConstrained {
-      print("Network conditions suggest reducing data usage")
+struct IpifyPing: NetworkPing, Sendable {
+  typealias StatusType = String?
+
+  let session: URLSession
+  let timeInterval: TimeInterval
+
+  func shouldPing(onStatus status: PathStatus) -> Bool {
+    switch status {
+    case .unknown, .unsatisfied:
+      return false
+    case .requiresConnection, .satisfied:
+      return true
     }
   }
-  .store(in: &cancellables)
 
-// React to specific transitions
-observer.$pathStatus
-  .removeDuplicates()
-  .sink { status in
-    if status == .satisfied {
-      print("Network became available - sync data")
-    }
+  func onPing(_ closure: @escaping (String?) -> Void) {
+    let url = URL(string: "https://api.ipify.org")!
+    session.dataTask(with: url) { data, _, _ in
+      closure(data.flatMap { String(data: $0, encoding: .utf8) })
+    }.resume()
   }
-  .store(in: &cancellables)
+}
+
+@MainActor
+class PingNetworkObject: ObservableObject {
+  let observer: NetworkObserver<NWPathMonitorAdapter, IpifyPing>
+
+  @Published var ipAddress: String?
+
+  init() {
+    observer = NetworkObserver(
+      monitor: NWPathMonitorAdapter(),
+      ping: IpifyPing(session: .shared, timeInterval: 10.0)
+    )
+
+    observer.$pingStatus
+      .assign(to: &$ipAddress)
+  }
+
+  func start() {
+    observer.start()
+  }
+}
 ```
 
-This reactive approach makes it easy to build sophisticated network-aware behaviors.
+The ping verifies actual internet connectivity by making a real network request. This catches cases where the network path is technically satisfied but internet access is blocked (captive portals, DNS issues, etc.).
 
 ## WatchConnectivity Communication
 
-Communicate between iPhone and Apple Watch using the @MainActor-based ``ConnectivityObserver``. The observer provides @Published properties for session state and Combine publishers for incoming messages, making WatchConnectivity straightforward in SwiftUI apps.
+Communicate between iPhone and Apple Watch using ``ConnectivityObserver``. The observer provides @Published properties for session state and Combine publishers for incoming messages, making WatchConnectivity straightforward in SwiftUI apps.
 
 ### Session Activation and State
 
@@ -300,71 +319,216 @@ observer.messageReceived
 
 Combine's operators give you fine-grained control over how messages are processed and delivered to your app.
 
-## Ping Integration
+## Type-Safe Messaging
 
-Monitor network connectivity with periodic pings to verify actual internet access beyond path availability:
+SundialKitConnectivity provides two protocols for defining custom message types: ``Messagable`` for dictionary-based messages and ``BinaryMessagable`` for efficient binary serialization. Both work seamlessly with ConnectivityObserver to provide compile-time type safety for your iPhone-Apple Watch communication.
+
+### Dictionary-Based Messages with Messagable
+
+The ``Messagable`` protocol enables type-safe message encoding and decoding. Instead of working with raw dictionaries, you define custom message types that are automatically serialized and deserialized:
 
 ```swift
-import SundialKitCombine
-import SundialKitNetwork
+import SundialKitConnectivity
 
-struct IpifyPing: NetworkPing, Sendable {
-  typealias StatusType = String?
+struct ColorMessage: Messagable {
+  static let key = "color"  // Identifier for this message type
 
-  let session: URLSession
-  let timeInterval: TimeInterval
+  let red: Double
+  let green: Double
+  let blue: Double
 
-  func shouldPing(onStatus status: PathStatus) -> Bool {
-    switch status {
-    case .unknown, .unsatisfied:
-      return false
-    case .requiresConnection, .satisfied:
-      return true
+  init(red: Double, green: Double, blue: Double) {
+    self.red = red
+    self.green = green
+    self.blue = blue
+  }
+
+  init(from parameters: [String: any Sendable]) throws {
+    guard let red = parameters["red"] as? Double,
+          let green = parameters["green"] as? Double,
+          let blue = parameters["blue"] as? Double else {
+      throw SerializationError.missingField("color components")
     }
+    self.red = red
+    self.green = green
+    self.blue = blue
   }
 
-  func onPing(_ closure: @escaping (String?) -> Void) {
-    let url = URL(string: "https://api.ipify.org")!
-    session.dataTask(with: url) { data, _, _ in
-      closure(data.flatMap { String(data: $0, encoding: .utf8) })
-    }.resume()
-  }
-}
-
-@MainActor
-class PingNetworkObject: ObservableObject {
-  let observer: NetworkObserver<NWPathMonitorAdapter, IpifyPing>
-
-  @Published var ipAddress: String?
-
-  init() {
-    observer = NetworkObserver(
-      monitor: NWPathMonitorAdapter(),
-      ping: IpifyPing(session: .shared, timeInterval: 10.0)
-    )
-
-    observer.$pingStatus
-      .assign(to: &$ipAddress)
-  }
-
-  func start() {
-    observer.start()
+  func parameters() -> [String: any Sendable] {
+    ["red": red, "green": green, "blue": blue]
   }
 }
 ```
 
-The ping verifies actual internet connectivity by making a real network request. This catches cases where the network path is technically satisfied but internet access is blocked (captive portals, DNS issues, etc.).
+The `key` property identifies the message type, allowing the receiver to route it to the correct handler. The `parameters()` method converts your type to a dictionary, and the `init(from:)` initializer reconstructs it from received data.
 
-### @MainActor and Thread Safety
+### Binary Serialization with BinaryMessagable
 
-All SundialKitCombine observers use @MainActor isolation, ensuring:
+For larger datasets or complex data structures, ``BinaryMessagable`` provides efficient binary serialization. This approach works seamlessly with Protocol Buffers, MessagePack, or any custom binary format:
 
-- **Main Thread Updates**: All @Published property changes happen on the main thread automatically
-- **SwiftUI Safety**: No need to manually dispatch to main queue before updating UI
-- **Compile-Time Guarantees**: Swift 6.1 strict concurrency prevents threading issues at compile time
-- **Zero @unchecked Sendable**: Everything is properly isolated without workarounds
+```swift
+import SundialKitConnectivity
+import SwiftProtobuf
 
-This makes it safe to bind observer properties directly to SwiftUI views without additional synchronization code.
+// Extend your Protobuf-generated type
+extension UserProfile: BinaryMessagable {
+  // key defaults to "UserProfile" (type name)
+
+  public init(from data: Data) throws {
+    try self.init(serializedData: data)  // SwiftProtobuf decoder
+  }
+
+  public func encode() throws -> Data {
+    try serializedData()  // SwiftProtobuf encoder
+  }
+
+  // init(from parameters:) and parameters() auto-implemented!
+}
+```
+
+**Custom binary format example:**
+
+```swift
+struct TemperatureReading: BinaryMessagable {
+  let celsius: Float
+  let timestamp: UInt64
+
+  init(celsius: Float, timestamp: UInt64) {
+    self.celsius = celsius
+    self.timestamp = timestamp
+  }
+
+  public init(from data: Data) throws {
+    guard data.count == 12 else {  // 4 + 8 bytes
+      throw SerializationError.invalidDataSize
+    }
+    celsius = data.withUnsafeBytes { $0.load(as: Float.self) }
+    timestamp = data.dropFirst(4).withUnsafeBytes { $0.load(as: UInt64.self) }
+  }
+
+  public func encode() throws -> Data {
+    var data = Data()
+    withUnsafeBytes(of: celsius) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: timestamp) { data.append(contentsOf: $0) }
+    return data
+  }
+}
+```
+
+### SwiftUI Integration with Type-Safe Messages
+
+Here's a complete example showing how to use custom message types with SwiftUI and Combine:
+
+```swift
+import SwiftUI
+import SundialKitCombine
+import SundialKitConnectivity
+import Combine
+
+@MainActor
+class WatchMessenger: ObservableObject {
+  let observer: ConnectivityObserver
+
+  @Published var receivedColor: Color?
+  @Published var isReachable: Bool = false
+  @Published var activationState: ActivationState = .notActivated
+
+  private var cancellables = Set<AnyCancellable>()
+
+  init() {
+    // Create observer with message decoder supporting multiple types
+    observer = ConnectivityObserver(
+      messageDecoder: MessageDecoder(messagableTypes: [
+        ColorMessage.self,
+        TemperatureReading.self
+      ])
+    )
+
+    // Bind session state
+    observer.$isReachable
+      .assign(to: &$isReachable)
+
+    observer.$activationState
+      .assign(to: &$activationState)
+
+    // Listen for typed messages
+    observer.typedMessageReceived
+      .sink { [weak self] message in
+        if let colorMessage = message as? ColorMessage {
+          self?.receivedColor = Color(
+            red: colorMessage.red,
+            green: colorMessage.green,
+            blue: colorMessage.blue
+          )
+        } else if let temp = message as? TemperatureReading {
+          print("Temperature: \(temp.celsius)°C at \(temp.timestamp)")
+        }
+      }
+      .store(in: &cancellables)
+  }
+
+  func activate() throws {
+    try observer.activate()
+  }
+
+  func sendColor(red: Double, green: Double, blue: Double) async throws {
+    let message = ColorMessage(red: red, green: green, blue: blue)
+    let result = try await observer.send(message)
+    print("Sent via: \(result.context)")
+  }
+}
+
+struct WatchColorView: View {
+  @StateObject var messenger = WatchMessenger()
+
+  var body: some View {
+    VStack(spacing: 20) {
+      Text("WatchConnectivity")
+        .font(.headline)
+
+      Text("Session: \(messenger.activationState.description)")
+      Text("Reachable: \(messenger.isReachable ? "Yes" : "No")")
+
+      if let color = messenger.receivedColor {
+        Rectangle()
+          .fill(color)
+          .frame(width: 100, height: 100)
+          .cornerRadius(10)
+
+        Text("Received Color")
+          .font(.caption)
+      }
+
+      Button("Send Red") {
+        Task {
+          try? await messenger.sendColor(red: 1.0, green: 0.0, blue: 0.0)
+        }
+      }
+      .disabled(!messenger.isReachable)
+
+      Button("Send Blue") {
+        Task {
+          try? await messenger.sendColor(red: 0.0, green: 0.0, blue: 1.0)
+        }
+      }
+      .disabled(!messenger.isReachable)
+    }
+    .padding()
+    .onAppear {
+      try? messenger.activate()
+    }
+  }
+}
+```
+
+This example demonstrates:
+- Creating a `MessageDecoder` with multiple custom message types
+- Binding `@Published` properties from the observer to SwiftUI state
+- Receiving typed messages and converting them to SwiftUI views
+- Sending type-safe messages from button actions
+- Automatic UI updates when messages arrive or session state changes
+
+> Important: Dictionary-based messages have a size limit of approximately 65KB. For larger data, use ``BinaryMessagable`` for efficient serialization or consider file transfer methods.
 
 ## Topics
 
