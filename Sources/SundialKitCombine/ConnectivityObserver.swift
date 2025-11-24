@@ -93,14 +93,14 @@
     @Published public internal(set) var activationState: ActivationState = .notActivated
 
     /// Whether the counterpart device is reachable
-    @Published public internal(set) var isReachable: Bool = false
+    @Published public internal(set) var isReachable = false
 
     /// Whether the companion app is installed (watchOS app on paired iPhone, or iOS app on paired Watch)
-    @Published public internal(set) var isPairedAppInstalled: Bool = false
+    @Published public internal(set) var isPairedAppInstalled = false
 
     #if os(iOS)
       /// Whether an Apple Watch is paired (iOS only)
-      @Published public internal(set) var isPaired: Bool = false
+      @Published public internal(set) var isPaired = false
     #endif
 
     /// Last activation error (nil if no error occurred)

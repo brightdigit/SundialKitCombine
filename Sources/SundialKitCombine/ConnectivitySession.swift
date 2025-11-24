@@ -31,6 +31,17 @@ import Foundation
 import SundialKitConnectivity
 
 extension ConnectivitySession {
+  /// Sends binary message data to the counterpart device.
+  ///
+  /// Converts the callback-based `sendMessageData(_:replyHandler:)` API to async/await
+  /// using a checked continuation. Wraps the result in a `ConnectivitySendResult` with
+  /// the original message for context tracking.
+  ///
+  /// - Parameters:
+  ///   - data: The encoded binary message data to send
+  ///   - message: The original Messagable for context in the result
+  /// - Returns: A ConnectivitySendResult indicating success with reply transport info,
+  ///            or failure with error details
   internal func sendBinaryData(_ data: Data, message: some Messagable) async
     -> ConnectivitySendResult
   {

@@ -70,10 +70,10 @@
     @Published public private(set) var pathStatus: PathStatus = .unknown
 
     /// Whether the network is expensive (cellular, personal hotspot, etc.)
-    @Published public private(set) var isExpensive: Bool = false
+    @Published public private(set) var isExpensive = false
 
     /// Whether the network is constrained (low data mode)
-    @Published public private(set) var isConstrained: Bool = false
+    @Published public private(set) var isConstrained = false
 
     /// Current ping status (if ping is enabled)
     @Published public private(set) var pingStatus: PingType.StatusType?
