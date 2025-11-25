@@ -1,5 +1,5 @@
 //
-//  ConnectivityObserver+Delegate.swift
+//  ConnectivityObserver+MessageHandling.swift
 //  SundialKitCombine
 //
 //  Created by Leo Dion.
@@ -36,116 +36,11 @@
   #if canImport(os.log)
     import os.log
   #endif
-  // MARK: - ConnectivitySessionDelegate
+
+  // MARK: - ConnectivitySessionDelegate - Message Handling
 
   @MainActor
   extension ConnectivityObserver {
-    /// Handles session activation completion.
-    ///
-    /// Called when the connectivity session completes its activation process.
-    /// Updates the observer's published state properties and emits an event through
-    /// the `activationCompleted` publisher.
-    ///
-    /// - Parameters:
-    ///   - session: The connectivity session that completed activation
-    ///   - state: The activation state after completion
-    ///   - error: Optional error if activation failed
-    nonisolated public func session(
-      _ session: any ConnectivitySession,
-      activationDidCompleteWith state: ActivationState,
-      error: (any Error)?
-    ) {
-      // Extract values before crossing isolation boundary
-      let isReachable = session.isReachable
-      let isPairedAppInstalled = session.isPairedAppInstalled
-      #if os(iOS)
-        let isPaired = session.isPaired
-      #endif
-
-      Task { @MainActor in
-        self.activationState = state
-        self.activationError = error
-        self.isReachable = isReachable
-        self.isPairedAppInstalled = isPairedAppInstalled
-        #if os(iOS)
-          self.isPaired = isPaired
-        #endif
-
-        // Publish activation completion event
-        if let error = error {
-          self.activationCompleted.send(.failure(error))
-        } else {
-          self.activationCompleted.send(.success(state))
-        }
-      }
-    }
-
-    /// Handles when session becomes inactive.
-    ///
-    /// Called when the connectivity session transitions to an inactive state.
-    /// Updates the observer's activation state to reflect the session's new state.
-    ///
-    /// - Parameter session: The connectivity session that became inactive
-    nonisolated public func sessionDidBecomeInactive(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let activationState = session.activationState
-
-      Task { @MainActor in
-        self.activationState = activationState
-      }
-    }
-
-    /// Handles session deactivation.
-    ///
-    /// Called when the connectivity session is deactivated.
-    /// Updates the observer's activation state to reflect the session's new state.
-    ///
-    /// - Parameter session: The connectivity session that was deactivated
-    nonisolated public func sessionDidDeactivate(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let activationState = session.activationState
-
-      Task { @MainActor in
-        self.activationState = activationState
-      }
-    }
-
-    /// Handles when session reachability changes.
-    ///
-    /// Called when the reachability status of the counterpart device changes.
-    /// Updates the observer's `isReachable` property.
-    ///
-    /// - Parameter session: The connectivity session with updated reachability
-    nonisolated public func sessionReachabilityDidChange(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let isReachable = session.isReachable
-
-      Task { @MainActor in
-        self.isReachable = isReachable
-      }
-    }
-
-    /// Handles companion device state changes.
-    ///
-    /// Called when the pairing status of the counterpart device changes.
-    /// Updates the observer's `isPairedAppInstalled` and `isPaired` properties.
-    ///
-    /// - Parameter session: The connectivity session with updated companion state
-    nonisolated public func sessionCompanionStateDidChange(_ session: any ConnectivitySession) {
-      // Extract values before crossing isolation boundary
-      let isPairedAppInstalled = session.isPairedAppInstalled
-      #if os(iOS)
-        let isPaired = session.isPaired
-      #endif
-
-      Task { @MainActor in
-        self.isPairedAppInstalled = isPairedAppInstalled
-        #if os(iOS)
-          self.isPaired = isPaired
-        #endif
-      }
-    }
-
     /// Handles received message with reply handler.
     ///
     /// Called when a dictionary message is received from the counterpart device.
