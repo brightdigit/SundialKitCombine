@@ -204,7 +204,7 @@ connectivityObserver.messageReceived
 
 ## Dependencies
 
-The package depends on SundialKit 2.0.0+ (`Package.swift:62`):
+The package depends on SundialKit 2.0.0-alpha.1+ (`Package.swift:62`):
 - `SundialKitCore`: Base protocols and types
 - `SundialKitNetwork`: Network monitoring abstractions
 - `SundialKitConnectivity`: WatchConnectivity abstractions
