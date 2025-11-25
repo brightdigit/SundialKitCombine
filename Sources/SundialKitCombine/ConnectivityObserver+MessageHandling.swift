@@ -1,5 +1,5 @@
 //
-//  ConnectivityObserver+Delegate.swift
+//  ConnectivityObserver+MessageHandling.swift
 //  SundialKitCombine
 //
 //  Created by Leo Dion.
@@ -36,88 +36,20 @@
   #if canImport(os.log)
     import os.log
   #endif
-  // MARK: - ConnectivitySessionDelegate
+
+  // MARK: - ConnectivitySessionDelegate - Message Handling
 
   @MainActor
   extension ConnectivityObserver {
-    /// Handles session activation completion.
-    nonisolated public func session(
-      _ session: any ConnectivitySession,
-      activationDidCompleteWith state: ActivationState,
-      error: (any Error)?
-    ) {
-      // Extract values before crossing isolation boundary
-      let isReachable = session.isReachable
-      let isPairedAppInstalled = session.isPairedAppInstalled
-      #if os(iOS)
-        let isPaired = session.isPaired
-      #endif
-
-      Task { @MainActor in
-        self.activationState = state
-        self.activationError = error
-        self.isReachable = isReachable
-        self.isPairedAppInstalled = isPairedAppInstalled
-        #if os(iOS)
-          self.isPaired = isPaired
-        #endif
-
-        // Publish activation completion event
-        if let error = error {
-          self.activationCompleted.send(.failure(error))
-        } else {
-          self.activationCompleted.send(.success(state))
-        }
-      }
-    }
-
-    /// Handles when session becomes inactive.
-    nonisolated public func sessionDidBecomeInactive(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let activationState = session.activationState
-
-      Task { @MainActor in
-        self.activationState = activationState
-      }
-    }
-
-    /// Handles session deactivation.
-    nonisolated public func sessionDidDeactivate(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let activationState = session.activationState
-
-      Task { @MainActor in
-        self.activationState = activationState
-      }
-    }
-
-    /// Handles when session reachability changes.
-    nonisolated public func sessionReachabilityDidChange(_ session: any ConnectivitySession) {
-      // Extract value before crossing isolation boundary
-      let isReachable = session.isReachable
-
-      Task { @MainActor in
-        self.isReachable = isReachable
-      }
-    }
-
-    /// Handles companion device state changes.
-    nonisolated public func sessionCompanionStateDidChange(_ session: any ConnectivitySession) {
-      // Extract values before crossing isolation boundary
-      let isPairedAppInstalled = session.isPairedAppInstalled
-      #if os(iOS)
-        let isPaired = session.isPaired
-      #endif
-
-      Task { @MainActor in
-        self.isPairedAppInstalled = isPairedAppInstalled
-        #if os(iOS)
-          self.isPaired = isPaired
-        #endif
-      }
-    }
-
     /// Handles received message with reply handler.
+    ///
+    /// Called when a dictionary message is received from the counterpart device.
+    /// Publishes the message through both raw and typed publishers if a decoder is available.
+    ///
+    /// - Parameters:
+    ///   - session: The connectivity session that received the message
+    ///   - message: The dictionary message received
+    ///   - replyHandler: Handler to send a reply back to the sender
     nonisolated public func session(
       _ session: any ConnectivitySession,
       didReceiveMessage message: ConnectivityMessage,
@@ -144,6 +76,14 @@
     }
 
     /// Handles received application context.
+    ///
+    /// Called when an application context update is received from the counterpart device.
+    /// Publishes the context through both raw and typed publishers if a decoder is available.
+    ///
+    /// - Parameters:
+    ///   - session: The connectivity session that received the context
+    ///   - applicationContext: The application context dictionary received
+    ///   - error: Optional error if context reception failed
     nonisolated public func session(
       _ session: any ConnectivitySession,
       didReceiveApplicationContext applicationContext: ConnectivityMessage,
@@ -174,6 +114,14 @@
     }
 
     /// Handles received binary message data with reply handler.
+    ///
+    /// Called when binary message data is received from the counterpart device.
+    /// Attempts to decode using the message decoder if available.
+    ///
+    /// - Parameters:
+    ///   - session: The connectivity session that received the data
+    ///   - messageData: The binary message data received
+    ///   - replyHandler: Handler to send a binary reply back to the sender
     nonisolated public func session(
       _ session: any ConnectivitySession,
       didReceiveMessageData messageData: Data,

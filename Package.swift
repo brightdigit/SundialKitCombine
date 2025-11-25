@@ -34,14 +34,14 @@ let swiftSettings: [SwiftSetting] = [
   .enableExperimentalFeature("WarnUnsafeReflection"),
 
   // Enhanced compiler checking
-  .unsafeFlags([
-    "-warn-concurrency",
-    "-enable-actor-data-race-checks",
-    "-strict-concurrency=complete",
-    "-enable-testing",
-    "-Xfrontend", "-warn-long-function-bodies=100",
-    "-Xfrontend", "-warn-long-expression-type-checking=100"
-  ])
+  // .unsafeFlags([
+  //   "-warn-concurrency",
+  //   "-enable-actor-data-race-checks",
+  //   "-strict-concurrency=complete",
+  //   "-enable-testing",
+  //   "-Xfrontend", "-warn-long-function-bodies=100",
+  //   "-Xfrontend", "-warn-long-expression-type-checking=100"
+  // ])
 ]
 
 let package = Package(
@@ -59,7 +59,7 @@ let package = Package(
     )
   ],
   dependencies: [
-    .package(url: "https://github.com/brightdigit/SundialKit.git", branch: "v2.0.0")
+    .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0-alpha.1")
   ],
   targets: [
     .target(

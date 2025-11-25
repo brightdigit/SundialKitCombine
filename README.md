@@ -36,11 +36,11 @@ Combine-based observation plugin for SundialKit with @Published properties and r
 
 ## Why Choose SundialKitCombine
 
-If you're building a SwiftUI application and need to support iOS 13+, SundialKitCombine is the perfect choice. It leverages Combine's publisher infrastructure to provide reactive state updates that bind naturally to SwiftUI views. The @Published properties work seamlessly with SwiftUI's observation system, automatically triggering view updates when network or connectivity state changes.
+If you're building a SwiftUI application and need to support iOS 16+, SundialKitCombine is the perfect choice. It leverages Combine's publisher infrastructure to provide reactive state updates that bind naturally to SwiftUI views. The @Published properties work seamlessly with SwiftUI's observation system, automatically triggering view updates when network or connectivity state changes.
 
 **Choose SundialKitCombine when you:**
 - Building SwiftUI applications with reactive data binding
-- Need to support iOS 13+ / watchOS 6+ / tvOS 13+ / macOS 10.15+
+- Need to support iOS 16+ / watchOS 9+ / tvOS 16+ / macOS 11+
 - Prefer Combine publishers and the `.sink` pattern for reactive updates
 - Want @Published properties that bind directly to SwiftUI views
 - Already have Combine-based infrastructure in your app
@@ -52,17 +52,17 @@ If you're building a SwiftUI application and need to support iOS 13+, SundialKit
 - **Combine Publishers**: Full reactive programming support with operators like `map`, `filter`, `debounce`
 - **Swift 6.1 Strict Concurrency**: Zero `@unchecked Sendable` conformances - everything uses @MainActor isolation
 - **SwiftUI Integration**: Native `ObservableObject` conformance for seamless view updates
-- **Backward Compatible**: Supports iOS 13+ for maximum deployment flexibility
+- **Combine Framework**: Built on Apple's Combine framework for reactive programming
 
 ## Requirements
 
 - **Swift**: 6.1+
 - **Xcode**: 16.0+
 - **Platforms**:
-  - iOS 13+
-  - watchOS 6+
-  - tvOS 13+
-  - macOS 10.15+
+  - iOS 16+
+  - watchOS 9+
+  - tvOS 16+
+  - macOS 11+
 - **Framework**: Combine
 
 ## Installation
@@ -72,10 +72,10 @@ Add SundialKitCombine to your `Package.swift`:
 ```swift
 let package = Package(
   name: "YourPackage",
-  platforms: [.iOS(.v13), .watchOS(.v6), .tvOS(.v13), .macOS(.v10_15)],
+  platforms: [.iOS(.v16), .watchOS(.v9), .tvOS(.v16), .macOS(.v11)],
   dependencies: [
-    .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0"),
-    .package(url: "https://github.com/brightdigit/SundialKitCombine.git", from: "1.0.0")
+    .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0-alpha.1"),
+    .package(url: "https://github.com/brightdigit/SundialKitCombine.git", from: "1.0.0-alpha.1")
   ],
   targets: [
     .target(
@@ -426,7 +426,7 @@ SundialKitCombine is part of SundialKit's three-layer architecture:
 | **Concurrency Model** | @MainActor-based | Actor-based |
 | **State Updates** | @Published properties | AsyncStream |
 | **Thread Safety** | @MainActor isolation | Actor isolation |
-| **Platform Support** | iOS 13+, watchOS 6+, tvOS 13+, macOS 10.15+ | iOS 16+, watchOS 9+, tvOS 16+, macOS 13+ |
+| **Platform Support** | iOS 16+, watchOS 9+, tvOS 16+, macOS 11+ | iOS 16+, watchOS 9+, tvOS 16+, macOS 13+ |
 | **Use Case** | Combine-based apps, SwiftUI with ObservableObject | Modern async/await apps |
 
 ## Documentation
