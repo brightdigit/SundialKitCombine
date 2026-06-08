@@ -59,7 +59,8 @@ let package = Package(
     )
   ],
   dependencies: [
-    .package(url: "https://github.com/brightdigit/SundialKit.git", from: "2.0.0-alpha.1")
+    // Queued transports (transferUserInfo/transferFile) live on atleast-beta.6
+    .package(url: "https://github.com/brightdigit/SundialKit.git", branch: "atleast-beta.6")
   ],
   targets: [
     .target(
